@@ -11,13 +11,28 @@ current_state = {}
 started_users = set()
 channel_username = "mabowaged_eg"  # اسم القناة بدون @
 
+def send_subscription_message(chat_id):
+    markup = types.InlineKeyboardMarkup()
+    subscribe_button = types.InlineKeyboardButton("📢 اشترك في القناة", url=f"https://t.me/{channel_username}")
+    check_button = types.InlineKeyboardButton("✅ تحقّق من الاشتراك", callback_data="check_subscription")
+    markup.add(subscribe_button)
+    markup.add(check_button)
+    bot.send_message(chat_id, f"""اشترك في قناة العتاولة نت لاستخدام البوت ☠️
+
+🔻 اشترك من الزر التالي ثم اضغط على "تحقق من الاشتراك" ✅""", reply_markup=markup)
+
 @bot.message_handler(commands=['start'])
 def start(message):
     chat_id = message.chat.id
-    if not check_force_subscription(chat_id):
+    try:
+        member = bot.get_chat_member(f"@{channel_username}", chat_id)
+        if member.status not in ['member', 'creator', 'administrator']:
+            send_subscription_message(chat_id)
+            return
+    except:
+        send_subscription_message(chat_id)
         return
 
-    started_users.add(chat_id)
     current_state[chat_id] = PHONE
     msg = bot.send_message(chat_id, """العتاولة نت 🔥
 ساعتين اتصالات سوشيال 
@@ -30,11 +45,7 @@ def check_subscription(call):
     try:
         member = bot.get_chat_member(f"@{channel_username}", chat_id)
         if member.status in ['member', 'creator', 'administrator']:
-            try:
-                bot.delete_message(chat_id, call.message.message_id)
-            except:
-                pass
-            started_users.add(chat_id)
+            bot.delete_message(chat_id, call.message.message_id)
             current_state[chat_id] = PHONE
             msg = bot.send_message(chat_id, """✅ تم التحقق من الاشتراك بنجاح!
 العتاولة نت 🔥
@@ -42,39 +53,12 @@ def check_subscription(call):
 ارسل رقم هاتفك اتصالات""")
             bot.register_next_step_handler(msg, process_phone_step)
         else:
-            raise Exception("Not subscribed")
+            send_subscription_message(chat_id)
     except:
-        markup = types.InlineKeyboardMarkup()
-        subscribe_button = types.InlineKeyboardButton("📢 اشترك في القناة", url=f"https://t.me/{channel_username}")
-        check_button = types.InlineKeyboardButton("✅ تحقّق من الاشتراك", callback_data="check_subscription")
-        markup.add(subscribe_button)
-        markup.add(check_button)
-        bot.edit_message_text(chat_id=chat_id, message_id=call.message.message_id,
-            text=f"""اشترك في قناة العتاولة نت لاستخدام البوت ☠️
-
-🔻 اشترك من الزر التالي ثم اضغط على "تحقق من الاشتراك" ✅""", reply_markup=markup)
-
-def check_force_subscription(chat_id):
-    try:
-        member = bot.get_chat_member(f"@{channel_username}", chat_id)
-        if member.status not in ['member', 'creator', 'administrator']:
-            raise Exception("User not subscribed")
-    except:
-        markup = types.InlineKeyboardMarkup()
-        subscribe_button = types.InlineKeyboardButton("📢 اشترك في القناة", url=f"https://t.me/{channel_username}")
-        check_button = types.InlineKeyboardButton("✅ تحقّق من الاشتراك", callback_data="check_subscription")
-        markup.add(subscribe_button)
-        markup.add(check_button)
-        bot.send_message(chat_id, f"""اشترك في قناة العتاولة نت لاستخدام البوت ☠️
-
-🔻 اشترك من الزر التالي ثم اضغط على "تحقق من الاشتراك" ✅""", reply_markup=markup)
-        return False
-    return True
+        send_subscription_message(chat_id)
 
 def process_phone_step(message):
     chat_id = message.chat.id
-    if not check_force_subscription(chat_id):
-        return
     if len(message.text) != 11 or not message.text.isdigit():
         msg = bot.send_message(chat_id, "قم بإدخال رقم هاتف اتصالات المكون من 11 رقم ")
         bot.register_next_step_handler(msg, process_phone_step)
@@ -87,8 +71,6 @@ def process_phone_step(message):
 
 def process_password_step(message):
     chat_id = message.chat.id
-    if not check_force_subscription(chat_id):
-        return
     if message.text == "/start":
         msg = bot.send_message(chat_id, "قم بإدخال رقم هاتف اتصالات المكون من 11 رقم")
         bot.register_next_step_handler(msg, process_phone_step)
@@ -100,10 +82,7 @@ def process_password_step(message):
 
 def process_email_step(message):
     chat_id = message.chat.id
-    if not check_force_subscription(chat_id):
-        return
     if message.text == "/start":
-        chat_id = message.chat.id
         msg = bot.send_message(chat_id, "قم بإدخال رقم هاتف اتصالات المكون من 11 رقم")
         bot.register_next_step_handler(msg, process_phone_step)
         return
@@ -117,13 +96,9 @@ def process_email_step(message):
     jo18 = base64.b64encode(jo17)
     jo19 = jo18.decode("ascii")
     jo20 = "Basic" + " " + jo19
-    if "011" in jo14:
-        jo15 = jo14[+1:]
-    else:
-        jo15 = jo14
+    jo15 = jo14[+1:] if "011" in jo14 else jo14
 
     jo21 = "https://mab.etisalat.com.eg:11003/Saytar/rest/authentication/loginWithPlan"
-
     jo22 = {
         "applicationVersion": "2",
         "applicationName": "MAB",
@@ -146,20 +121,22 @@ def process_email_step(message):
     }
 
     jo23 = "<?xml version='1.0' encoding='UTF-8' standalone='yes' ?><loginRequest><deviceId></deviceId><firstLoginAttempt>true</firstLoginAttempt><modelType></modelType><osVersion></osVersion><platform>Android</platform><udid></udid></loginRequest>"
-    jo24 = requests.post(jo21, headers=jo22, data=jo23)
+    try:
+        jo24 = requests.post(jo21, headers=jo22, data=jo23)
+    except Exception:
+        bot.send_message(chat_id, "❌ حدث خطأ في استلام البيانات من الخادم، يرجى المحاولة لاحقًا.")
+        return
 
     if "true" in jo24.text:
-        msg = bot.send_message(chat_id, "تم تسجيل الدخول للحساب بنجاح")
-        msg = bot.send_message(chat_id, "انتظر🤌🔥")
+        bot.send_message(chat_id, "تم تسجيل الدخول للحساب بنجاح\nانتظر🤌🔥")
         st = jo24.headers["Set-Cookie"]
         ck = st.split(";")[0]
         br = jo24.headers["auth"]
     else:
-        msg = bot.send_message(chat_id, "رقم الهاتف او كلمة المرور او الايميل خطأ اعد المحاولة مره اخري")
+        bot.send_message(chat_id, "رقم الهاتف او كلمة المرور او الايميل خطأ اعد المحاولة مره اخري")
         return
 
-    jo25 = "https://mab.etisalat.com.eg:11003/Saytar/rest/zero11/offersV3?req=<dialAndLanguageRequest><subscriberNumber>%s</subscriberNumber><language>1</language></dialAndLanguageRequest>" % (jo15)
-
+    jo25 = f"https://mab.etisalat.com.eg:11003/Saytar/rest/zero11/offersV3?req=<dialAndLanguageRequest><subscriberNumber>{jo15}</subscriberNumber><language>1</language></dialAndLanguageRequest>"
     jo26 = {
         'applicationVersion': "2",
         'Content-Type': "text/xml",
@@ -180,7 +157,11 @@ def process_email_step(message):
         'Cookie': ck
     }
 
-    jo27 = requests.get(jo25, headers=jo26)
+    try:
+        jo27 = requests.get(jo25, headers=jo26)
+    except Exception:
+        bot.send_message(chat_id, "❌ حدث خطأ أثناء جلب العروض.")
+        return
 
     if jo27.status_code == 200:
         root = Et.fromstring(jo27.text)
@@ -190,18 +171,17 @@ def process_email_step(message):
                 for parameter in product.findall('.//fulfilmentParameter'):
                     if parameter.find('name').text == 'Offer_ID':
                         jo28 = parameter.find('value').text
-                        msg = bot.send_message(chat_id, f"تم الوصول إلى العرض. آيدي العرض: {jo28}. انتظر، جاري تفعيل العرض حالًا ❤️‍🔥")
+                        bot.send_message(chat_id, f"تم الوصول إلى العرض. آيدي العرض: {jo28}. انتظر، جاري تفعيل العرض حالًا ❤️‍🔥")
                         break
                 if jo28:
                     break
             if jo28:
                 break
     else:
-        msg = bot.send_message(chat_id, "عفوا هذا العرض غير متاح لخطك النهارده جرب تاني بكرة")
+        bot.send_message(chat_id, "عفوا هذا العرض غير متاح لخطك النهارده جرب تاني بكرة")
         return
 
     jo29 = "https://mab.etisalat.com.eg:11003/Saytar/rest/zero11/submitOrder"
-
     jo30 = {
         "applicationVersion": "2",
         "applicationName": "MAB",
@@ -213,7 +193,7 @@ def process_email_step(message):
         "OS-Type": "Android",
         "OS-Version": "12",
         "APP-STORE": "GOOGLE",
-        "auth": "Bearer " + br + "",
+        "auth": "Bearer " + br,
         "Is-Corporate": "false",
         "Content-Type": "text/xml; charset=UTF-8",
         "Content-Length": "1375",
@@ -222,13 +202,15 @@ def process_email_step(message):
         "User-Agent": "okhttp/5.0.0-alpha.11"
     }
 
-    jo31 = "<?xml version='1.0' encoding='UTF-8' standalone='yes' ?><submitOrderRequest><mabOperation></mabOperation><msisdn>%s</msisdn><operation>ACTIVATE</operation><parameters><parameter><name>GIFT_FULLFILMENT_PARAMETERS</name><value>Offer_ID:%s;ACTIVATE:True;isRTIM:Y</value></parameter></parameters><productName>FAN_ZONE_HOURLY_BUNDLE</productName></submitOrderRequest>" % (jo15, jo28)
-
-    jo32 = requests.post(jo29, headers=jo30, data=jo31).text
-    if "true" in jo32:
-        msg = bot.send_message(chat_id, "تم الحصول علي الساعتين سوشيال بنجاح")
-    else:
-        msg = bot.send_message(chat_id, "انت اخدت العرض ده  النهاردة حاول بكرة تاني")
+    jo31 = f"<?xml version='1.0' encoding='UTF-8' standalone='yes' ?><submitOrderRequest><mabOperation></mabOperation><msisdn>{jo15}</msisdn><operation>ACTIVATE</operation><parameters><parameter><name>GIFT_FULLFILMENT_PARAMETERS</name><value>Offer_ID:{jo28};ACTIVATE:True;isRTIM:Y</value></parameter></parameters><productName>FAN_ZONE_HOURLY_BUNDLE</productName></submitOrderRequest>"
+    try:
+        jo32 = requests.post(jo29, headers=jo30, data=jo31).text
+        if "true" in jo32:
+            bot.send_message(chat_id, "تم الحصول علي الساعتين سوشيال بنجاح")
+        else:
+            bot.send_message(chat_id, "انت اخدت العرض ده النهاردة حاول بكرة تاني")
+    except Exception:
+        bot.send_message(chat_id, "❌ حدث خطأ أثناء تفعيل العرض، حاول لاحقًا.")
 
 if __name__ == '__main__':
     bot.polling(none_stop=True)
