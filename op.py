@@ -1,199 +1,222 @@
 import telebot
+import base64
 import requests
-import time
-import json
-import re
+import xml.etree.ElementTree as Et
+from telebot import types
 
-bot = telebot.TeleBot('7823158391:AAHsuGiNw_tGx6OKCR7KlySXjulT2soxCFE')
+bot = telebot.TeleBot('7872275930:AAHO_nyMF0t-0cWvHF3w8TbUGIKjC37ob6s')
 
 PHONE, PASSWORD = range(2)
 current_state = {}
 started_users = set()
+channel_username = "mabowaged_eg"  # اسم القناة بدون @
 
 @bot.message_handler(commands=['start'])
 def start(message):
     chat_id = message.chat.id
+    try:
+        member = bot.get_chat_member(f"@{channel_username}", chat_id)
+        if member.status not in ['member', 'creator', 'administrator']:
+            raise Exception("User not subscribed")
+    except:
+        markup = types.InlineKeyboardMarkup()
+        subscribe_button = types.InlineKeyboardButton("📢 اشترك في القناة", url=f"https://t.me/{channel_username}")
+        check_button = types.InlineKeyboardButton("✅ تحقّق من الاشتراك", callback_data="check_subscription")
+        markup.add(subscribe_button)
+        markup.add(check_button)
+        bot.send_message(chat_id, f"""اشترك في قناة العتاولة نت لاستخدام البوت ☠️
+
+🔻 اشترك من الزر التالي ثم اضغط على "تحقق من الاشتراك" ✅""", reply_markup=markup)
+        return
+
     if chat_id not in started_users:
         started_users.add(chat_id)
         current_state[chat_id] = PHONE
-        msg = bot.send_message(chat_id, """تيم العتاولة نت 🔥
-عرض ال5G فودافون
-قم بإرسال رقم هاتفك""")
+        msg = bot.send_message(chat_id, """العتاولة نت 🔥
+        ساعتين اتصالات سوشيال 
+        ارسل رقم هاتفك اتصالات""")
         bot.register_next_step_handler(msg, process_phone_step)
+
+@bot.callback_query_handler(func=lambda call: call.data == "check_subscription")
+def check_subscription(call):
+    chat_id = call.message.chat.id
+    try:
+        member = bot.get_chat_member(f"@{channel_username}", chat_id)
+        if member.status in ['member', 'creator', 'administrator']:
+            bot.delete_message(chat_id, call.message.message_id)
+            if chat_id not in started_users:
+                started_users.add(chat_id)
+                current_state[chat_id] = PHONE
+                msg = bot.send_message(chat_id, """✅ تم التحقق من الاشتراك بنجاح!
+العتاولة نت 🔥
+ساعتين اتصالات سوشيال 
+ارسل رقم هاتفك اتصالات""")
+                bot.register_next_step_handler(msg, process_phone_step)
+        else:
+            raise Exception("Not subscribed")
+    except:
+        markup = types.InlineKeyboardMarkup()
+        subscribe_button = types.InlineKeyboardButton("📢 اشترك في القناة", url=f"https://t.me/{channel_username}")
+        check_button = types.InlineKeyboardButton("✅ تحقّق من الاشتراك", callback_data="check_subscription")
+        markup.add(subscribe_button)
+        markup.add(check_button)
+        bot.edit_message_text(chat_id=chat_id, message_id=call.message.message_id,
+            text=f"""اشترك في قناة العتاولة نت لاستخدام البوت ☠️
+
+🔻 اشترك من الزر التالي ثم اضغط على "تحقق من الاشتراك" ✅""", reply_markup=markup)
 
 def process_phone_step(message):
     chat_id = message.chat.id
     if len(message.text) != 11 or not message.text.isdigit():
-        msg = bot.send_message(chat_id, """تيم العتاولة نت 🔥
-عرض ال5G فودافون
-قم بإرسال رقم هاتفك""")
+        msg = bot.send_message(chat_id, "قم بإدخال رقم هاتف اتصالات المكون من 11 رقم ")
         bot.register_next_step_handler(msg, process_phone_step)
         return
     current_state[chat_id] = PASSWORD
     phone_number = message.text
     current_state['nu'] = phone_number
-    msg = bot.send_message(chat_id, "قم بإدخال كلمة مرور حسابك في فودافون")
+    msg = bot.send_message(chat_id, "قم بإدخال كلمة مرور تطبيق اتصالات")
     bot.register_next_step_handler(msg, process_password_step)
 
 def process_password_step(message):
     chat_id = message.chat.id
     if message.text == "/start":
-        start(message)
+        msg = bot.send_message(chat_id, "قم بإدخال رقم هاتف اتصالات المكون من 11 رقم")
+        bot.register_next_step_handler(msg, process_phone_step)
         return
+    password = message.text
+    current_state['pas'] = password
+    msg = bot.send_message(chat_id, "قم بإدخال الإيميل الخاص بتطبيق اتصالات")
+    bot.register_next_step_handler(msg, process_email_step)
 
-    current_state['pas'] = message.text
-    nu = current_state['nu']
-    pas = current_state['pas']
-
-    url = "https://mobile.vodafone.com.eg/auth/realms/vf-realm/protocol/openid-connect/token"
-    payload = {
-        'username': nu,
-        'password': pas,
-        'grant_type': "password",
-        'client_secret': "a2ec6fff-0b7f-4aa4-a733-96ceae5c84c3",
-        'client_id': "my-vodafone-app"
-    }
-    headers = {
-        'User-Agent': "okhttp/4.9.1",
-        'Accept': "application/json, text/plain, */*",
-        'Accept-Encoding': "gzip, deflate",
-        'Content-Type': "application/x-www-form-urlencoded"
-    }
-
-    response = requests.post(url, data=payload, headers=headers)
-    result = response.json()
-
-    if 'access_token' not in result:
-        bot.send_message(chat_id, "الرقم او كلمة السر غلط ❌")
+def process_email_step(message):
+    chat_id = message.chat.id
+    if message.text == "/start":
+        chat_id = message.chat.id
+        msg = bot.send_message(chat_id, "قم بإدخال رقم هاتف اتصالات المكون من 11 رقم")
+        bot.register_next_step_handler(msg, process_phone_step)
         return
-
-    token = result['access_token']
-    bot.send_message(chat_id, "✅ تم تسجيل الدخول بنجاح")
-    time.sleep(2)
-    bot.send_message(chat_id, "⏳ جاري الحصول على العرض...")
-
-    number = nu
-    url2 = "https://web.vodafone.com.eg/services/dxl/promo/promotion"
-    params2 = {
-        "@type": "Promo",
-        "$.context.type": "5G_Promo",
-        "$.characteristics[@name=customerNumber].value": number
-    }
-    headers2 = {
-        'User-Agent': "Mozilla/5.0 (Linux; Android 14; RMX3890) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.7151.61 Mobile Safari/537.36",
-        'Accept': "application/json",
-        'Accept-Encoding': "gzip, deflate, br, zstd",
-        'sec-ch-ua-platform': "\"Android\"",
-        'Authorization': f"Bearer {token}",
-        'Accept-Language': "AR",
-        'msisdn': number,
-        'sec-ch-ua': "\"Android WebView\";v=\"137\", \"Chromium\";v=\"137\", \"Not/A)Brand\";v=\"24\"",
-        'clientId': "WebsiteConsumer",
-        'sec-ch-ua-mobile': "?1",
-        'channel': "APP_PORTAL",
-        'Content-Type': "application/json",
-        'X-Requested-With': "mark.via.gp",
-        'Sec-Fetch-Site': "same-origin",
-        'Sec-Fetch-Mode': "cors",
-        'Sec-Fetch-Dest': "empty",
-        'Referer': "https://web.vodafone.com.eg/portal/bf/5gGame",
-    }
-
-    response2 = requests.get(url2, headers=headers2, params=params2)
-    data = response2.json()
-
-    played_levels = []
-    locked_today = False
-    current_level = None
-
-    for item in data[0]['characteristics']:
-        if item['name'] == 'playedLevels':
-            played_levels = list(map(int, item['value'].split(','))) if item['value'] else []
-        elif item['name'] == 'playedToday':
-            locked_today = item['value'] == "1"
-        elif item['name'] == 'currentLevel':
-            current_level = int(item['value'])
-
-    next_level = max(played_levels) + 1 if played_levels else 1
-
-    if locked_today or next_level > current_level:
-        bot.send_message(chat_id, "❌ انت اخدت العرض النهارده")
-        return
-
-    url3 = "https://web.vodafone.com.eg/services/dxl/promo/promotion"
-    payload3 = {
-        "@type": "Promo",
-        "channel": {"id": "APP_PORTAL"},
-        "context": {"type": "5G_Promo"},
-        "pattern": [{
-            "characteristics": [
-                {"name": "level", "value": current_level},
-                {"name": "score", "value": 50},
-                {"name": "customerNumber", "value": number}
-            ]
-        }]
-    }
-    headers3 = headers2.copy()
-    headers3['Referer'] = f"https://web.vodafone.com.eg/portal/bf/5gGame/game-page?currentLevel={current_level}&gameLevel={current_level}"
-
-    response3 = requests.post(url3, data=json.dumps(payload3), headers=headers3)
-    match = re.search(r'"actionValue"\s*:\s*([\d.]+)', response3.text)
-    match_id = re.search(r'"id"\s*:\s*"([^"]+)"', response3.text)
-
-    if match and match_id:
-        MB = float(match.group(1))
-        id = match_id.group(1)
-        if MB == 0:
-            bot.send_message(chat_id, "ملكش هدايا انهارده")
-            return
-        else:
-            bot.send_message(chat_id, f"✅ كسبت {MB} ميجا مبروك")
-
-        ugift = 'https://web.vodafone.com.eg/services/dxl/promo/promotion/' + id
-        hgift = {
-            "Host": "web.vodafone.com.eg",
-            "Connection": "keep-alive",
-            "Content-Length": "159",
-            "sec-ch-ua-platform": "\"Android\"",
-            "Authorization": f"Bearer {token}",
-            "Accept-Language": "AR",
-            "msisdn": number,
-            "x-dtpc": "5$209503482_534h43vROPHBGIURHGCTKKFICPPWPSUHKLMMUHM-0e0",
-            "clientId": "WebsiteConsumer",
-            "sec-ch-ua": "\"Android WebView\";v=\"137\", \"Chromium\";v=\"137\", \"Not/A)Brand\";v=\"24\"",
-            "sec-ch-ua-mobile": "?1",
-            "User-Agent": "Mozilla/5.0 (Linux; Android 15; ELI-NX9 Build/HONORELI-N39) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.7151.61 Mobile Safari/537.36",
-            "Accept": "application/json",
-            "channel": "APP_PORTAL",
-            "Content-Type": "application/json",
-            "Origin": "https://web.vodafone.com.eg",
-            "X-Requested-With": "mark.via.gp",
-            "Sec-Fetch-Site": "same-origin",
-            "Sec-Fetch-Mode": "cors",
-            "Sec-Fetch-Dest": "empty",
-            "Referer": "https://web.vodafone.com.eg/portal/bf/5gGame",
-            "Accept-Encoding": "gzip, deflate, br, zstd",
-        }
-        dgift = {
-            "@type": "Promo",
-            "channel": {"id": "APP_PORTAL"},
-            "context": {"type": "5G_Promo"},
-            "pattern": [{
-                "characteristics": [{
-                    "name": "customerNumber",
-                    "value": number
-                }]
-            }]
-        }
-
-        tgift = requests.patch(ugift, headers=hgift, json=dgift)
-        if tgift.status_code == 204:
-            bot.send_message(chat_id, "✅ تم الحصول على العرض بنجاح 🔥")
-        else:
-            bot.send_message(chat_id, "❌ حصل خطأ، حاول لاحقًا")
+    email = message.text
+    current_state['em'] = email
+    jo14 = current_state['nu']
+    jo13 = current_state['pas']
+    jo12 = current_state['em']
+    jo16 = jo12 + ":" + jo13
+    jo17 = jo16.encode("ascii")
+    jo18 = base64.b64encode(jo17)
+    jo19 = jo18.decode("ascii")
+    jo20 = "Basic" + " " + jo19
+    if "011" in jo14:
+        jo15 = jo14[+1:]
     else:
-        bot.send_message(chat_id, "❌ لم يتم العثور على بيانات العرض أو حصل خطأ.")
+        jo15 = jo14
+
+    jo21 = "https://mab.etisalat.com.eg:11003/Saytar/rest/authentication/loginWithPlan"
+
+    jo22 = {
+        "applicationVersion": "2",
+        "applicationName": "MAB",
+        "Accept": "text/xml",
+        "Authorization": jo20,
+        "APP-BuildNumber": "964",
+        "APP-Version": "27.0.0",
+        "OS-Type": "Android",
+        "OS-Version": "12",
+        "APP-STORE": "GOOGLE",
+        "Is-Corporate": "false",
+        "Content-Type": "text/xml; charset=UTF-8",
+        "Content-Length": "1375",
+        "Host": "mab.etisalat.com.eg:11003",
+        "Connection": "Keep-Alive",
+        "Accept-Encoding": "gzip",
+        "User-Agent": "okhttp/5.0.0-alpha.11",
+        "ADRUM_1": "isMobile:true",
+        "ADRUM": "isAjax:true"
+    }
+
+    jo23 = "<?xml version='1.0' encoding='UTF-8' standalone='yes' ?><loginRequest><deviceId></deviceId><firstLoginAttempt>true</firstLoginAttempt><modelType></modelType><osVersion></osVersion><platform>Android</platform><udid></udid></loginRequest>"
+    jo24 = requests.post(jo21, headers=jo22, data=jo23)
+
+    if "true" in jo24.text:
+        msg = bot.send_message(chat_id, "تم تسجيل الدخول للحساب بنجاح")
+        msg = bot.send_message(chat_id, "انتظر🤌🔥")
+        st = jo24.headers["Set-Cookie"]
+        ck = st.split(";")[0]
+        br = jo24.headers["auth"]
+    else:
+        msg = bot.send_message(chat_id, "رقم الهاتف او كلمة المرور او الايميل خطأ اعد المحاولة مره اخري")
+        return
+
+    jo25 = "https://mab.etisalat.com.eg:11003/Saytar/rest/zero11/offersV3?req=<dialAndLanguageRequest><subscriberNumber>%s</subscriberNumber><language>1</language></dialAndLanguageRequest>" % (jo15)
+
+    jo26 = {
+        'applicationVersion': "2",
+        'Content-Type': "text/xml",
+        'applicationName': "MAB",
+        'Accept': "text/xml",
+        'Language': "ar",
+        'APP-BuildNumber': "10459",
+        'APP-Version': "29.9.0",
+        'OS-Type': "Android",
+        'OS-Version': "11",
+        'APP-STORE': "GOOGLE",
+        'auth': "Bearer " + br,
+        'Host': "mab.etisalat.com.eg:11003",
+        'Is-Corporate': "false",
+        'Connection': "Keep-Alive",
+        'Accept-Encoding': "gzip",
+        'User-Agent': "okhttp/5.0.0-alpha.11",
+        'Cookie': ck
+    }
+
+    jo27 = requests.get(jo25, headers=jo26)
+
+    if jo27.status_code == 200:
+        root = Et.fromstring(jo27.text)
+        jo28 = None
+        for category in root.findall('.//mabCategory'):
+            for product in category.findall('.//mabProduct'):
+                for parameter in product.findall('.//fulfilmentParameter'):
+                    if parameter.find('name').text == 'Offer_ID':
+                        jo28 = parameter.find('value').text
+                        msg = bot.send_message(chat_id, f"تم الوصول إلى العرض. آيدي العرض: {jo28}. انتظر، جاري تفعيل العرض حالًا ❤️‍🔥")
+                        break
+                if jo28:
+                    break
+            if jo28:
+                break
+    else:
+        msg = bot.send_message(chat_id, "عفوا هذا العرض غير متاح لخطك النهارده جرب تاني بكرة")
+        return
+
+    jo29 = "https://mab.etisalat.com.eg:11003/Saytar/rest/zero11/submitOrder"
+
+    jo30 = {
+        "applicationVersion": "2",
+        "applicationName": "MAB",
+        "Accept": "text/xml",
+        "Cookie": ck,
+        "Language": "ar",
+        "APP-BuildNumber": "964",
+        "APP-Version": "27.0.0",
+        "OS-Type": "Android",
+        "OS-Version": "12",
+        "APP-STORE": "GOOGLE",
+        "auth": "Bearer " + br + "",
+        "Is-Corporate": "false",
+        "Content-Type": "text/xml; charset=UTF-8",
+        "Content-Length": "1375",
+        "Host": "mab.etisalat.com.eg:11003",
+        "Connection": "Keep-Alive",
+        "User-Agent": "okhttp/5.0.0-alpha.11"
+    }
+
+    jo31 = "<?xml version='1.0' encoding='UTF-8' standalone='yes' ?><submitOrderRequest><mabOperation></mabOperation><msisdn>%s</msisdn><operation>ACTIVATE</operation><parameters><parameter><name>GIFT_FULLFILMENT_PARAMETERS</name><value>Offer_ID:%s;ACTIVATE:True;isRTIM:Y</value></parameter></parameters><productName>FAN_ZONE_HOURLY_BUNDLE</productName></submitOrderRequest>" % (jo15, jo28)
+
+    jo32 = requests.post(jo29, headers=jo30, data=jo31).text
+    if "true" in jo32:
+        msg = bot.send_message(chat_id, "تم الحصول علي الساعتين سوشيال بنجاح")
+    else:
+        msg = bot.send_message(chat_id, "انت اخدت العرض ده  النهاردة حاول بكرة تاني")
 
 if __name__ == '__main__':
-    print("✅ تم تشغيل البوت بنجاح")
     bot.polling(none_stop=True)
