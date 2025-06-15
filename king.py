@@ -75,7 +75,7 @@ def process_password_step(message):
     }
 
     response = requests.post(url, data=payload, headers=headers)
-
+    print(response.text) 
     try:
         result = response.json()
     except ValueError:
