@@ -75,9 +75,14 @@ def process_password_step(message):
     }
 
     response = requests.post(url, data=payload, headers=headers)
-    
-    
-    result = response.json()
+
+    try:
+        result = response.json()
+    except ValueError:
+        bot.send_message(chat_id, "❌ حدث خطأ في استلام البيانات من الخادم، يرجى المحاولة لاحقًا.")
+        print("Response status:", response.status_code)
+        print("Response text:", response.text)
+        return
 
     if 'access_token' not in result:
         msg = bot.send_message(chat_id, "الرقم او كلمة السر غلط ❌")
