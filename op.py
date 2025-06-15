@@ -16,6 +16,7 @@ channel_username = "mabowaged_eg"
 def start(message):
     chat_id = message.chat.id
 
+    # حذف الرسائل السابقة للاشتراك إن وجدت
     if chat_id in pending_subscriptions:
         try:
             bot.delete_message(chat_id, pending_subscriptions[chat_id])
@@ -39,13 +40,13 @@ def start(message):
         pending_subscriptions[chat_id] = msg.message_id
         return
 
-    if chat_id not in started_users:
-        started_users.add(chat_id)
-        current_state[chat_id] = PHONE
-        msg = bot.send_message(chat_id, """العتاولة نت 🔥
+    # إعادة تعيين الحالة والبدء من رقم الهاتف
+    started_users.discard(chat_id)
+    current_state[chat_id] = PHONE
+    msg = bot.send_message(chat_id, """العتاولة نت 🔥
 ساعتين اتصالات سوشيال 
 ارسل رقم هاتفك اتصالات""")
-        bot.register_next_step_handler(msg, process_phone_step)
+    bot.register_next_step_handler(msg, process_phone_step)
 
 @bot.callback_query_handler(func=lambda call: call.data == "check_subscription")
 def check_subscription(call):
@@ -57,14 +58,13 @@ def check_subscription(call):
                 bot.delete_message(chat_id, call.message.message_id)
             except:
                 pass
-            if chat_id not in started_users:
-                started_users.add(chat_id)
             if chat_id in pending_subscriptions:
                 try:
                     bot.delete_message(chat_id, pending_subscriptions[chat_id])
                 except:
                     pass
                 del pending_subscriptions[chat_id]
+            started_users.discard(chat_id)
             current_state[chat_id] = PHONE
             msg = bot.send_message(chat_id, """✅ تم التحقق من الاشتراك بنجاح!
 العتاولة نت 🔥
@@ -97,7 +97,7 @@ def process_phone_step(message):
         bot.register_next_step_handler(msg, process_phone_step)
         return
     current_state[chat_id] = PASSWORD
-    current_state['nu'] = phone
+    current_state[f'nu_{chat_id}'] = phone
     msg = bot.send_message(chat_id, "قم بإدخال كلمة مرور تطبيق اتصالات")
     bot.register_next_step_handler(msg, process_password_step)
 
@@ -107,7 +107,7 @@ def process_password_step(message):
         start(message)
         return
     password = message.text
-    current_state['pas'] = password
+    current_state[f'pas_{chat_id}'] = password
     msg = bot.send_message(chat_id, "قم بإدخال الإيميل الخاص بتطبيق اتصالات")
     bot.register_next_step_handler(msg, process_email_step)
 
@@ -117,14 +117,13 @@ def process_email_step(message):
         start(message)
         return
     email = message.text
-    current_state['em'] = email
-    jo14 = current_state['nu']
-    jo13 = current_state['pas']
-    jo12 = current_state['em']
-    jo16 = jo12 + ":" + jo13
+    nu = current_state.get(f'nu_{chat_id}')
+    pas = current_state.get(f'pas_{chat_id}')
+    current_state.pop(chat_id, None)
+    jo16 = email + ":" + pas
     jo18 = base64.b64encode(jo16.encode("ascii")).decode("ascii")
     jo20 = "Basic " + jo18
-    jo15 = jo14[1:] if "011" in jo14 else jo14
+    jo15 = nu[1:] if "011" in nu else nu
 
     jo21 = "https://mab.etisalat.com.eg:11003/Saytar/rest/authentication/loginWithPlan"
     jo22 = {
