@@ -14,28 +14,15 @@ channel_username = "mabowaged_eg"  # اسم القناة بدون @
 @bot.message_handler(commands=['start'])
 def start(message):
     chat_id = message.chat.id
-    try:
-        member = bot.get_chat_member(f"@{channel_username}", chat_id)
-        if member.status not in ['member', 'creator', 'administrator']:
-            raise Exception("User not subscribed")
-    except:
-        markup = types.InlineKeyboardMarkup()
-        subscribe_button = types.InlineKeyboardButton("📢 اشترك في القناة", url=f"https://t.me/{channel_username}")
-        check_button = types.InlineKeyboardButton("✅ تحقّق من الاشتراك", callback_data="check_subscription")
-        markup.add(subscribe_button)
-        markup.add(check_button)
-        bot.send_message(chat_id, f"""اشترك في قناة العتاولة نت لاستخدام البوت ☠️
-
-🔻 اشترك من الزر التالي ثم اضغط على "تحقق من الاشتراك" ✅""", reply_markup=markup)
+    if not check_force_subscription(chat_id):
         return
 
-    if chat_id not in started_users:
-        started_users.add(chat_id)
-        current_state[chat_id] = PHONE
-        msg = bot.send_message(chat_id, """العتاولة نت 🔥
-        ساعتين اتصالات سوشيال 
-        ارسل رقم هاتفك اتصالات""")
-        bot.register_next_step_handler(msg, process_phone_step)
+    started_users.add(chat_id)
+    current_state[chat_id] = PHONE
+    msg = bot.send_message(chat_id, """العتاولة نت 🔥
+ساعتين اتصالات سوشيال 
+ارسل رقم هاتفك اتصالات""")
+    bot.register_next_step_handler(msg, process_phone_step)
 
 @bot.callback_query_handler(func=lambda call: call.data == "check_subscription")
 def check_subscription(call):
@@ -43,15 +30,17 @@ def check_subscription(call):
     try:
         member = bot.get_chat_member(f"@{channel_username}", chat_id)
         if member.status in ['member', 'creator', 'administrator']:
-            bot.delete_message(chat_id, call.message.message_id)
-            if chat_id not in started_users:
-                started_users.add(chat_id)
-                current_state[chat_id] = PHONE
-                msg = bot.send_message(chat_id, """✅ تم التحقق من الاشتراك بنجاح!
+            try:
+                bot.delete_message(chat_id, call.message.message_id)
+            except:
+                pass
+            started_users.add(chat_id)
+            current_state[chat_id] = PHONE
+            msg = bot.send_message(chat_id, """✅ تم التحقق من الاشتراك بنجاح!
 العتاولة نت 🔥
 ساعتين اتصالات سوشيال 
 ارسل رقم هاتفك اتصالات""")
-                bot.register_next_step_handler(msg, process_phone_step)
+            bot.register_next_step_handler(msg, process_phone_step)
         else:
             raise Exception("Not subscribed")
     except:
@@ -65,8 +54,27 @@ def check_subscription(call):
 
 🔻 اشترك من الزر التالي ثم اضغط على "تحقق من الاشتراك" ✅""", reply_markup=markup)
 
+def check_force_subscription(chat_id):
+    try:
+        member = bot.get_chat_member(f"@{channel_username}", chat_id)
+        if member.status not in ['member', 'creator', 'administrator']:
+            raise Exception("User not subscribed")
+    except:
+        markup = types.InlineKeyboardMarkup()
+        subscribe_button = types.InlineKeyboardButton("📢 اشترك في القناة", url=f"https://t.me/{channel_username}")
+        check_button = types.InlineKeyboardButton("✅ تحقّق من الاشتراك", callback_data="check_subscription")
+        markup.add(subscribe_button)
+        markup.add(check_button)
+        bot.send_message(chat_id, f"""اشترك في قناة العتاولة نت لاستخدام البوت ☠️
+
+🔻 اشترك من الزر التالي ثم اضغط على "تحقق من الاشتراك" ✅""", reply_markup=markup)
+        return False
+    return True
+
 def process_phone_step(message):
     chat_id = message.chat.id
+    if not check_force_subscription(chat_id):
+        return
     if len(message.text) != 11 or not message.text.isdigit():
         msg = bot.send_message(chat_id, "قم بإدخال رقم هاتف اتصالات المكون من 11 رقم ")
         bot.register_next_step_handler(msg, process_phone_step)
@@ -79,6 +87,8 @@ def process_phone_step(message):
 
 def process_password_step(message):
     chat_id = message.chat.id
+    if not check_force_subscription(chat_id):
+        return
     if message.text == "/start":
         msg = bot.send_message(chat_id, "قم بإدخال رقم هاتف اتصالات المكون من 11 رقم")
         bot.register_next_step_handler(msg, process_phone_step)
@@ -90,6 +100,8 @@ def process_password_step(message):
 
 def process_email_step(message):
     chat_id = message.chat.id
+    if not check_force_subscription(chat_id):
+        return
     if message.text == "/start":
         chat_id = message.chat.id
         msg = bot.send_message(chat_id, "قم بإدخال رقم هاتف اتصالات المكون من 11 رقم")
