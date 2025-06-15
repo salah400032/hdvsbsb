@@ -9,7 +9,7 @@ bot = telebot.TeleBot('7872275930:AAHO_nyMF0t-0cWvHF3w8TbUGIKjC37ob6s')
 PHONE, PASSWORD, EMAIL = range(3)
 user_state = {}
 pending_subs = {}
-channel_username = "اسم_القناة_بدون_@"
+channel_username = "mabowaged_eg"
 
 @bot.message_handler(commands=['start'])
 def start(message):
