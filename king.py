@@ -3,15 +3,31 @@ import requests
 import time
 import json
 import re
+from telebot import types
 
 bot = telebot.TeleBot('7823158391:AAHsuGiNw_tGx6OKCR7KlySXjulT2soxCFE')
 
 PHONE, PASSWORD = range(2)
 current_state = {}
 started_users = set()
+channel_username = "mabowaged_eg"  # اسم القناة بدون @
 
 @bot.message_handler(commands=['start'])
 def start(message):
+    chat_id = message.chat.id
+
+    try:
+        member = bot.get_chat_member(f"@{channel_username}", chat_id)
+        if member.status not in ['member', 'creator', 'administrator']:
+            raise Exception("User not subscribed")
+    except:
+        markup = types.InlineKeyboardMarkup()
+        subscribe_button = types.InlineKeyboardButton("📢 اضغط هنا للاشتراك", url=f"https://t.me/{channel_username}")
+        markup.add(subscribe_button)
+        bot.send_message(chat_id, f"""اشترك في قناة العتاولة نت لاستخدام البوت ☠️
+
+🔻 اشترك من الزر التالي ثم أعد إرسال /start ✅""", reply_markup=markup)
+        return
     chat_id = message.chat.id
     if chat_id not in started_users:
         started_users.add(chat_id)
